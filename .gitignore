@@ -1,0 +1,11 @@
+.next
+node_modules
+.DS_Store
+storage/assets
+storage/exports
+storage/tmp
+storage/app.db
+storage/app.db-shm
+storage/app.db-wal
+storage/tmp-*
+*.tsbuildinfo
