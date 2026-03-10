@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PageCanvas, PagePreview } from "@/components/PagePreview";
 import { RichEditor } from "@/components/RichEditor";
 import { downloadCurrentPageAsPng, exportBundleAsZip } from "@/lib/browser-export";
@@ -63,13 +63,13 @@ function normalizeInlineNode(node: InlineNode): Record<string, unknown> {
 
   const marks = node.marks
     ? {
-        bold: Boolean(node.marks.bold),
-        color: node.marks.color || "",
-        fontSize: node.marks.fontSize ?? null,
-        lineHeight: node.marks.lineHeight ?? null,
-        letterSpacing: node.marks.letterSpacing ?? null,
-        paddingInline: node.marks.paddingInline ?? null
-      }
+      bold: Boolean(node.marks.bold),
+      color: node.marks.color || "",
+      fontSize: node.marks.fontSize ?? null,
+      lineHeight: node.marks.lineHeight ?? null,
+      letterSpacing: node.marks.letterSpacing ?? null,
+      paddingInline: node.marks.paddingInline ?? null
+    }
     : null;
 
   return {
@@ -112,6 +112,7 @@ function isSameDocContent(a: RichDoc, b: RichDoc): boolean {
 export default function HomePage() {
   const [project, setProject] = useState<Project>(() => normalizeProject(createDraftProject()));
   const [pages, setPages] = useState<PageRender[]>([]);
+  const [pageFirstNodeId, setPageFirstNodeId] = useState<Record<number, string>>({});
   const [selectedPageNo, setSelectedPageNo] = useState(1);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [issues, setIssues] = useState<ComplianceIssue[]>([]);
@@ -120,10 +121,36 @@ export default function HomePage() {
   const [history, setHistory] = useState<RichDoc[]>([]);
   const [future, setFuture] = useState<RichDoc[]>([]);
   const [presetKeyword, setPresetKeyword] = useState("");
-  const [libraryTab, setLibraryTab] = useState<"library" | "adjust">("library");
+  const [rightTab, setRightTab] = useState<"preview" | "templates" | "adjust">("preview");
+  const [publishExpanded, setPublishExpanded] = useState(false);
   const exportPageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const thumbContainerRef = useRef<HTMLDivElement | null>(null);
+  const [thumbScale, setThumbScale] = useState(0.13);
 
   const activeTemplate = useMemo(() => getTemplate(project.templateId), [project.templateId]);
+
+  // Measure sidebar thumbnail container to compute correct scale for PageCanvas
+  useLayoutEffect(() => {
+    const el = thumbContainerRef.current;
+    if (!el) return;
+    const update = () => {
+      const available = Math.max(60, el.clientWidth - 16);
+      setThumbScale(available / activeTemplate.canvasWidth);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activeTemplate.canvasWidth]);
+
+  const scrollToPage = useCallback((pageNo: number) => {
+    const nodeId = pageFirstNodeId[pageNo];
+    if (!nodeId) return;
+    const el =
+      document.querySelector<HTMLElement>(`p[data-node-id="${nodeId}"]`) ??
+      document.querySelector<HTMLElement>(`figure[data-node-id="${nodeId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [pageFirstNodeId]);
 
   const filteredBackgrounds = useMemo(
     () => filterByKeyword(BACKGROUND_PRESETS, presetKeyword, (item) => `${item.name} ${item.description}`),
@@ -146,6 +173,7 @@ export default function HomePage() {
 
     startTransition(() => {
       setPages(paginateResult.pages || []);
+      setPageFirstNodeId(paginateResult.pageFirstNodeId || {});
       setWarnings(paginateResult.warnings || []);
       setIssues(complianceIssues || []);
       setSuggestions({
@@ -330,56 +358,42 @@ export default function HomePage() {
 
   return (
     <main className="app-shell">
+      {/* ---- TOP BAR ---- */}
       <section className="app-topbar">
         <div className="topbar-info">
           <strong>小红书长文转图工作台</strong>
-          <div className="topbar-sub">Vercel 测试版 / 当前标签页内保留 / 刷新后重置</div>
+          <div className="topbar-sub">Vercel 测试版 · 仅当前标签页 · 刷新后重置</div>
         </div>
 
         <div className="topbar-actions">
           <button type="button" onClick={undo} disabled={!history.length}>
-            撤销
+            ↩ 撤销
           </button>
           <button type="button" onClick={redo} disabled={!future.length}>
-            重做
+            ↪ 重做
           </button>
           <button type="button" onClick={() => void exportAll()}>
-            导出发布包
+            ↓ 导出发布包
           </button>
         </div>
       </section>
 
       <section className="studio-layout">
-        <aside className="panel left-rail">
+        {/* ---- LEFT SIDEBAR: page thumbnails + skins ---- */}
+        <aside className="panel left-sidebar">
           <div className="panel-header">
             <strong>页面</strong>
-            <span>
-              {selectedPageNo}/{pages.length}
-            </span>
+            <span>{selectedPageNo}/{pages.length || 1}</span>
           </div>
 
-          <div className="page-rail-list">
-            {pages.map((page) => (
-              <button
-                key={page.pageNo}
-                type="button"
-                className={`page-rail-item ${selectedPageNo === page.pageNo ? "is-active" : ""}`}
-                onClick={() => setSelectedPageNo(page.pageNo)}
-                title={`跳转第 ${page.pageNo} 页`}
-              >
-                <span>{page.pageNo}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="rail-block">
-            <strong>快捷页面皮肤</strong>
-            <div className="quick-swatches">
-              {BACKGROUND_PRESETS.slice(0, 5).map((preset) => (
+          <div className="sidebar-skins">
+            <div className="sidebar-skins-label">快捷皮肤</div>
+            <div className="skin-swatch-grid">
+              {BACKGROUND_PRESETS.slice(0, 6).map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
-                  className={`swatch-btn ${selectedBackgroundId === preset.id ? "is-active" : ""}`}
+                  className={`skin-swatch-btn ${selectedBackgroundId === preset.id ? "is-active" : ""}`}
                   onClick={() => applyBackgroundPreset(preset.id)}
                   title={preset.name}
                 >
@@ -388,9 +402,41 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+
+          <div className="sidebar-thumbnails" ref={thumbContainerRef}>
+            {pages.length === 0 ? (
+              <div className="page-thumb-btn is-active">
+                <div className="page-thumb-label">1</div>
+              </div>
+            ) : (
+              pages.map((page) => (
+                <button
+                  key={page.pageNo}
+                  type="button"
+                  className={`page-thumb-btn ${selectedPageNo === page.pageNo ? "is-active" : ""}`}
+                  onClick={() => {
+                    setSelectedPageNo(page.pageNo);
+                    scrollToPage(page.pageNo);
+                  }}
+                  title={`第 ${page.pageNo} 页`}
+                >
+                  <PageCanvas
+                    page={page}
+                    scale={thumbScale}
+                    template={activeTemplate}
+                    theme={project.themeVars}
+                    mini
+                  />
+                  <div className="page-thumb-label">{page.pageNo}</div>
+                </button>
+              ))
+            )}
+          </div>
         </aside>
 
+        {/* ---- CENTER: EDITOR STACK ---- */}
         <section className="editor-stack">
+          {/* Project meta */}
           <section className="panel project-meta">
             <div className="toolbar project-toolbar">
               <label className="title-field">
@@ -413,94 +459,121 @@ export default function HomePage() {
             </div>
           </section>
 
+          {/* Rich editor */}
           <RichEditor doc={project.doc} onDocChange={updateDoc} onCommandFeedback={setMessage} />
 
-          <section className="panel insight-panel">
-            <div className="panel-header">
-              <strong>发布辅助</strong>
-              <span>{issues.length ? `风险词 ${issues.length}` : "合规通过"}</span>
+          {/* Publish assistant bar */}
+          <section className="panel publish-bar-section">
+            <div className="publish-bar">
+              <span className={`publish-bar-badge ${issues.length ? "danger" : ""}`}>
+                {issues.length ? `⚠ ${issues.length} 风险词` : "✓ 合规通过"}
+              </span>
+
+              {suggestions.titles.length > 0 && (
+                <span className="publish-bar-badge">
+                  ✦ {suggestions.titles.length} 标题候选
+                </span>
+              )}
+
+              {suggestions.tags.length > 0 && (
+                <span className="publish-bar-badge">
+                  # {suggestions.tags.length} 标签建议
+                </span>
+              )}
+
+              {warnings.length > 0 && (
+                <span className="publish-bar-badge">
+                  ⚡ {warnings.length} 分页提醒
+                </span>
+              )}
+
+              <button
+                type="button"
+                className="publish-expand"
+                onClick={() => setPublishExpanded((v) => !v)}
+              >
+                发布辅助 {publishExpanded ? "▴" : "▾"}
+              </button>
             </div>
 
-            <div className="meta-grid compact">
-              <div>
-                <strong>风险词</strong>
-                {issues.length ? (
-                  <div className="chips danger">
-                    {issues.map((item) => (
-                      <span key={item.word} className="chip">
-                        {item.word} x{item.count}
+            {publishExpanded && (
+              <div className="publish-detail">
+                <div>
+                  <strong>风险词</strong>
+                  {issues.length ? (
+                    <div className="chips danger">
+                      {issues.map((item) => (
+                        <span key={item.word} className="chip">
+                          {item.word} ×{item.count}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span>未发现风险词</span>
+                  )}
+                </div>
+
+                <div>
+                  <strong>标题候选</strong>
+                  <div className="chips">
+                    {suggestions.titles.slice(0, 4).map((title) => (
+                      <span key={title} className="chip">
+                        {title}
                       </span>
                     ))}
                   </div>
-                ) : (
-                  <span>未发现风险词</span>
+                </div>
+
+                <div>
+                  <strong>标签建议</strong>
+                  <div className="chips">
+                    {suggestions.tags.slice(0, 6).map((tag) => (
+                      <span key={tag} className="chip">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {warnings.length > 0 && (
+                  <div>
+                    <strong>分页提醒</strong>
+                    <div className="chips">
+                      {warnings.slice(0, 3).map((warning) => (
+                        <span key={warning} className="chip">
+                          {warning}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
-
-              <div>
-                <strong>标题候选</strong>
-                <div className="chips">
-                  {suggestions.titles.slice(0, 4).map((title) => (
-                    <span key={title} className="chip">
-                      {title}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <strong>标签建议</strong>
-                <div className="chips">
-                  {suggestions.tags.slice(0, 6).map((tag) => (
-                    <span key={tag} className="chip">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {warnings.length > 0 ? (
-                <div>
-                  <strong>分页提醒</strong>
-                  <div className="chips">
-                    {warnings.slice(0, 3).map((warning) => (
-                      <span key={warning} className="chip">
-                        {warning}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            )}
           </section>
         </section>
 
-        <PagePreview
-          compact
-          template={activeTemplate}
-          theme={project.themeVars}
-          pages={pages}
-          selectedPageNo={selectedPageNo}
-          onSelectPage={setSelectedPageNo}
-          onDownloadPage={(pageNo) => {
-            void downloadPage(pageNo);
-          }}
-        />
-
-        <aside className="panel template-library">
+        {/* ---- RIGHT PANEL: Preview / Templates / Adjust ---- */}
+        <aside className="panel right-panel">
           <div className="panel-header">
-            <div className="library-tabs">
+            <div className="right-tabs">
               <button
                 type="button"
-                className={libraryTab === "library" ? "is-active" : ""}
-                onClick={() => setLibraryTab("library")}
+                className={`right-tab-btn ${rightTab === "preview" ? "is-active" : ""}`}
+                onClick={() => setRightTab("preview")}
               >
-                模板库
+                预览
               </button>
               <button
                 type="button"
-                className={libraryTab === "adjust" ? "is-active" : ""}
-                onClick={() => setLibraryTab("adjust")}
+                className={`right-tab-btn ${rightTab === "templates" ? "is-active" : ""}`}
+                onClick={() => setRightTab("templates")}
+              >
+                模板
+              </button>
+              <button
+                type="button"
+                className={`right-tab-btn ${rightTab === "adjust" ? "is-active" : ""}`}
+                onClick={() => setRightTab("adjust")}
               >
                 调整
               </button>
@@ -508,128 +581,149 @@ export default function HomePage() {
             <span>即时生效</span>
           </div>
 
-          {libraryTab === "library" ? (
-            <>
-              <div className="template-search">
-                <input
-                  type="text"
-                  value={presetKeyword}
-                  onChange={(event) => setPresetKeyword(event.target.value)}
-                  placeholder="搜索模板、页面皮肤"
-                />
-              </div>
+          <div className="right-content">
+            {/* Preview tab: flat tiled display of all pages */}
+            {rightTab === "preview" && (
+              <PagePreview
+                template={activeTemplate}
+                theme={project.themeVars}
+                pages={pages}
+                selectedPageNo={selectedPageNo}
+                onSelectPage={setSelectedPageNo}
+                onDownloadPage={(pageNo) => {
+                  void downloadPage(pageNo);
+                }}
+              />
+            )}
 
-              <div className="library-section">
-                <h4>版式模板</h4>
-                <div className="preset-grid template-grid">
-                  {filteredTemplates.map((template) => (
-                    <button
-                      key={template.id}
-                      type="button"
-                      className={`preset-card compact ${project.templateId === template.id ? "is-active" : ""}`}
-                      onClick={() => {
-                        const nextTemplate = getTemplate(template.id);
-                        setProject((current) => ({
-                          ...current,
-                          templateId: nextTemplate.id,
-                          themeVars: {
-                            ...nextTemplate.defaultTheme,
-                            footerSignature: current.themeVars.footerSignature
-                          },
-                          updatedAt: Date.now()
-                        }));
-                        setMessage(`已切换版式模板：${nextTemplate.name}`);
-                      }}
-                    >
-                      <div className="preset-meta">
-                        <strong>{template.name}</strong>
-                        <span>
-                          {template.canvasWidth} x {template.canvasHeight}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="library-section">
-                <h4>页面皮肤（作用于全部页面）</h4>
-                <div className="preset-grid">
-                  {filteredBackgrounds.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      className={`preset-card ${selectedBackgroundId === preset.id ? "is-active" : ""}`}
-                      onClick={() => applyBackgroundPreset(preset.id)}
-                    >
-                      <div className="preset-swatch" style={{ background: preset.preview }} />
-                      <div className="preset-meta">
-                        <strong>{preset.name}</strong>
-                        <span>{preset.description}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="library-section">
-              <h4>全局调整</h4>
-              <div className="adjust-grid">
-                <label>
-                  文字颜色
-                  <input
-                    type="color"
-                    value={normalizeHexColor(project.themeVars.textColor, "#111827")}
-                    onChange={(event) => applyGlobalTextColorChange(event.target.value)}
-                  />
-                </label>
-
-                <label>
-                  背景色
-                  <input
-                    type="color"
-                    value={normalizeHexColor(project.themeVars.pageBackground, "#fffaf4")}
-                    onChange={(event) =>
-                      handleThemeChange({
-                        pageBackground: normalizeHexColor(event.target.value, "#fffaf4")
-                      })
-                    }
-                  />
-                </label>
-
-                <label>
-                  基础字号
-                  <select
-                    value={String(project.themeVars.bodyFontSize)}
-                    onChange={(event) =>
-                      handleThemeChange({ bodyFontSize: Number(event.target.value) })
-                    }
-                  >
-                    {[28, 32, 36, 40, 44].map((size) => (
-                      <option key={size} value={size}>
-                        {size}px
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  页脚签名
+            {/* Templates tab */}
+            {rightTab === "templates" && (
+              <>
+                <div className="template-search">
                   <input
                     type="text"
-                    value={project.themeVars.footerSignature}
-                    onChange={(event) =>
-                      handleThemeChange({ footerSignature: event.target.value })
-                    }
+                    value={presetKeyword}
+                    onChange={(event) => setPresetKeyword(event.target.value)}
+                    placeholder="搜索模板、页面皮肤"
                   />
-                </label>
+                </div>
+
+                <div className="library-section">
+                  <h4>版式模板</h4>
+                  <div className="preset-grid template-grid">
+                    {filteredTemplates.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        className={`preset-card compact ${project.templateId === template.id ? "is-active" : ""}`}
+                        onClick={() => {
+                          const nextTemplate = getTemplate(template.id);
+                          setProject((current) => ({
+                            ...current,
+                            templateId: nextTemplate.id,
+                            themeVars: {
+                              ...nextTemplate.defaultTheme,
+                              footerSignature: current.themeVars.footerSignature
+                            },
+                            updatedAt: Date.now()
+                          }));
+                          setMessage(`已切换版式模板：${nextTemplate.name}`);
+                        }}
+                      >
+                        <div className="preset-meta">
+                          <strong>{template.name}</strong>
+                          <span>
+                            {template.canvasWidth} × {template.canvasHeight}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="library-section">
+                  <h4>页面皮肤（作用于全部页面）</h4>
+                  <div className="preset-grid">
+                    {filteredBackgrounds.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={`preset-card ${selectedBackgroundId === preset.id ? "is-active" : ""}`}
+                        onClick={() => applyBackgroundPreset(preset.id)}
+                      >
+                        <div className="preset-swatch" style={{ background: preset.preview }} />
+                        <div className="preset-meta">
+                          <strong>{preset.name}</strong>
+                          <span>{preset.description}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Adjust tab */}
+            {rightTab === "adjust" && (
+              <div className="library-section">
+                <h4>全局调整</h4>
+                <div className="adjust-grid">
+                  <label>
+                    文字颜色
+                    <input
+                      type="color"
+                      value={normalizeHexColor(project.themeVars.textColor, "#111827")}
+                      onChange={(event) => applyGlobalTextColorChange(event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    背景色
+                    <input
+                      type="color"
+                      value={normalizeHexColor(project.themeVars.pageBackground, "#fffaf4")}
+                      onChange={(event) =>
+                        handleThemeChange({
+                          pageBackground: normalizeHexColor(event.target.value, "#fffaf4")
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    基础字号
+                    <select
+                      value={String(project.themeVars.bodyFontSize)}
+                      onChange={(event) =>
+                        handleThemeChange({ bodyFontSize: Number(event.target.value) })
+                      }
+                    >
+                      {[28, 32, 36, 40, 44].map((size) => (
+                        <option key={size} value={size}>
+                          {size}px
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    页脚签名
+                    <input
+                      type="text"
+                      value={project.themeVars.footerSignature}
+                      onChange={(event) =>
+                        handleThemeChange({ footerSignature: event.target.value })
+                      }
+                    />
+                  </label>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </aside>
       </section>
 
+      {/* Hidden export canvases */}
       <div
         aria-hidden
         style={{

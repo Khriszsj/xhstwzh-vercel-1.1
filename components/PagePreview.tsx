@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, RefObject } from "react";
 import type { PageRender, Template, TextRun, ThemeVars } from "@/lib/types";
+
+const useMeasureEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface PagePreviewProps {
   template: Template;
@@ -35,7 +37,7 @@ function runStyle(theme: ThemeVars, run: TextRun): CSSProperties {
 function useScale(widthRef: RefObject<HTMLDivElement | null>, template: Template): number {
   const [width, setWidth] = useState(360);
 
-  useEffect(() => {
+  useMeasureEffect(() => {
     const element = widthRef.current;
     if (!element) {
       return;

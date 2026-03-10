@@ -180,6 +180,7 @@ export function paginateDoc(params: {
 
   const pages: PageRender[] = [createEmptyPage(1)];
   let currentPage = pages[0];
+  const pageFirstNodeId: Record<number, string> = {};
 
   const pushItem = (item: PageItem, height: number, forceNewPage = true): void => {
     if (
@@ -196,6 +197,11 @@ export function paginateDoc(params: {
   };
 
   for (const node of doc.nodes) {
+    // Record first node for each page before processing
+    if (!pageFirstNodeId[currentPage.pageNo]) {
+      pageFirstNodeId[currentPage.pageNo] = node.id;
+    }
+
     if (node.type === "paragraph") {
       const lines = paragraphToLines(node, {
         contentWidth,
@@ -224,6 +230,10 @@ export function paginateDoc(params: {
           spacing,
           true
         );
+      }
+      // If a new page was created during paragraph processing, this node is its first
+      if (!pageFirstNodeId[currentPage.pageNo]) {
+        pageFirstNodeId[currentPage.pageNo] = node.id;
       }
       continue;
     }
@@ -265,10 +275,15 @@ export function paginateDoc(params: {
       18,
       true
     );
+    // If a new page was created during processing, this node is its first
+    if (!pageFirstNodeId[currentPage.pageNo]) {
+      pageFirstNodeId[currentPage.pageNo] = node.id;
+    }
   }
 
   return {
     pages,
-    warnings
+    warnings,
+    pageFirstNodeId
   };
 }

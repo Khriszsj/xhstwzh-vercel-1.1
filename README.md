@@ -7,6 +7,9 @@ English: This project is a Next.js tool for Xiaohongshu long-form creators, and 
 每次打开页面都会进入默认编辑界面，当前标签页内保留编辑状态，刷新或关闭后内容会重置。
 English: Each visit starts from the default editor, the current tab keeps its working state, and refresh or close will reset the content.
 
+当前迭代版本：`v1.1.0`
+English: Current iteration version: `v1.1.0`
+
 - 富文本编辑（加粗、字号、颜色、换行、空格保留）
   English: Rich text editing (bold, font size, color, line breaks, and preserved spaces)
 - 编辑区插图（上传 / 粘贴 / 拖拽）
@@ -21,6 +24,23 @@ English: Each visit starts from the default editor, the current tab keeps its wo
   English: Download the current page as PNG directly in the browser
 - 浏览器端导出发布包（PNG 图集 + publish.md + meta.json + zip）
   English: Export a publishing bundle in the browser (PNG pages + publish.md + meta.json + zip)
+
+## 0. v1.1 迭代重点
+> 0. v1.1 Highlights
+
+- 左侧栏改为“快捷皮肤在上、页面缩略图在下”
+  English: The left sidebar now places quick skins above page thumbnails
+- 页面缩略图展示真实分页内容，并增强当前页选中态
+  English: Page thumbnails now render real paginated content with a clearer active state
+- 点击左侧缩略图可联动到对应编辑内容区域
+  English: Clicking a left thumbnail now links back to the corresponding editor content area
+- 右侧整合为预览 / 模板 / 调整三标签结构
+  English: The right side is reorganized into Preview / Templates / Adjust tabs
+- 编辑器工具栏和整体视觉层级完成一轮整理
+  English: The editor toolbar and the overall visual hierarchy were refreshed
+
+详细说明见 [docs/ITERATION-1.1.md](docs/ITERATION-1.1.md)。
+English: See [docs/ITERATION-1.1.md](docs/ITERATION-1.1.md) for the full iteration notes.
 
 ## 1. 环境要求
 > 1. Environment Requirements

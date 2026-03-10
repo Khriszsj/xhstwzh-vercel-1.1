@@ -145,6 +145,8 @@ export interface PageRender {
 export interface PaginationResult {
   pages: PageRender[];
   warnings: string[];
+  /** First doc node ID on each page (pageNo → nodeId), for editor scroll targeting */
+  pageFirstNodeId: Record<number, string>;
 }
 
 export interface EditorOperation {

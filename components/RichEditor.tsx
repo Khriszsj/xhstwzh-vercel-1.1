@@ -852,14 +852,14 @@ export function RichEditor({
       setUploadMessage("");
       const insertContext: PendingInsertContext = pendingInsertRef.current
         ? {
-            ...pendingInsertRef.current
-          }
+          ...pendingInsertRef.current
+        }
         : {
-            anchor: insertAnchorRef.current ?? selectionAnchorRef.current,
-            paragraphId: lastParagraphIdRef.current,
-            bookmarkId: insertBookmarkIdRef.current,
-            createdAt: Date.now()
-          };
+          anchor: insertAnchorRef.current ?? selectionAnchorRef.current,
+          paragraphId: lastParagraphIdRef.current,
+          bookmarkId: insertBookmarkIdRef.current,
+          createdAt: Date.now()
+        };
       try {
         const [dimensions, dataUrl] = await Promise.all([
           readImageDimensions(file).catch(() => ({
@@ -1273,18 +1273,29 @@ export function RichEditor({
     <div className="panel">
       <div className="panel-header">
         <strong>文本编辑区</strong>
-        <span>{isUploading ? "上传中..." : "支持图片/emoji/富文本"}</span>
+        <span>{isUploading ? "上传中..." : "支持图片 / emoji / 富文本"}</span>
       </div>
 
+      {/* Upload feedback */}
       {uploadMessage ? (
-        <div className="toolbar" style={{ color: uploadMessage.includes("成功") ? "#047857" : "#b91c1c" }}>
+        <div
+          className="toolbar"
+          style={{
+            fontSize: 12,
+            color: uploadMessage.includes("成功") ? "#047857" : "#b91c1c",
+            padding: "7px 12px"
+          }}
+        >
           {uploadMessage}
         </div>
       ) : null}
 
+      {/* Row 1: Format + Colors + Insert */}
       <div className="toolbar">
         <button
           type="button"
+          className="toolbar-btn"
+          style={{ fontWeight: 700, letterSpacing: "0.01em" }}
           onMouseDown={() => {
             lockSelectionAsSpan();
           }}
@@ -1293,9 +1304,12 @@ export function RichEditor({
             const shouldUnbold = workingRange ? isRangeFullyBold(workingRange) : false;
             applySelectionStyle({ fontWeight: shouldUnbold ? "400" : "700" });
           }}
+          title="加粗"
         >
-          加粗
+          B
         </button>
+
+        <span className="toolbar-divider" />
 
         <div className="color-swatch-group" role="group" aria-label="常用文字颜色">
           {COMMON_TEXT_COLORS.map((item) => (
@@ -1312,13 +1326,15 @@ export function RichEditor({
               title={item.label}
             >
               <span className="color-swatch-dot" style={{ backgroundColor: item.value }} />
-              <span>{item.label}</span>
             </button>
           ))}
         </div>
 
+        <span className="toolbar-divider" />
+
         <button
           type="button"
+          className="toolbar-btn toolbar-btn-action"
           onMouseDown={() => {
             rememberSelection();
           }}
@@ -1328,12 +1344,14 @@ export function RichEditor({
             emitDoc();
             rememberSelection();
           }}
+          title="插入换行"
         >
-          换行
+          ↵ 换行
         </button>
 
         <button
           type="button"
+          className="toolbar-btn toolbar-btn-action"
           onMouseDown={(event) => {
             event.preventDefault();
             rememberSelection();
@@ -1342,8 +1360,9 @@ export function RichEditor({
           onClick={() => {
             fileInputRef.current?.click();
           }}
+          title="插入图片"
         >
-          插入图片
+          ⊕ 插图
         </button>
 
         <input
@@ -1370,108 +1389,107 @@ export function RichEditor({
         />
       </div>
 
-      <div className="toolbar style-slider-grid">
-        <label className="style-slider">
-          <span>字体大小</span>
-          <strong>{fontSize}px</strong>
+      {/* Row 2: Style sliders (horizontal compact row) */}
+      <div className="style-controls-row">
+        <label className="style-ctrl">
+          <span>字号</span>
           <input
-            type="range"
+            type="number"
             min={10}
             max={70}
             step={1}
             value={fontSize}
-            onMouseDown={() => {
-              lockSelectionAsSpan();
-            }}
-            onInput={(event) => {
-              updateFontSize(Number((event.target as HTMLInputElement).value));
-            }}
+            onMouseDown={() => { lockSelectionAsSpan(); }}
+            onFocus={() => { lockSelectionAsSpan(); }}
             onChange={(event) => {
-              updateFontSize(Number((event.target as HTMLInputElement).value));
+              const v = Number(event.target.value);
+              if (v >= 10 && v <= 70) updateFontSize(v);
             }}
           />
+          <span className="style-value">px</span>
         </label>
 
-        <label className="style-slider">
+        <span className="toolbar-divider" />
+
+        <label className="style-ctrl">
           <span>行高</span>
-          <strong>{lineHeight.toFixed(2)}</strong>
           <input
-            type="range"
+            type="number"
             min={1}
             max={2.4}
             step={0.05}
             value={lineHeight}
-            onMouseDown={() => {
-              lockSelectionAsSpan();
-            }}
-            onInput={(event) => {
-              updateLineHeight(Number((event.target as HTMLInputElement).value));
-            }}
+            onMouseDown={() => { lockSelectionAsSpan(); }}
+            onFocus={() => { lockSelectionAsSpan(); }}
             onChange={(event) => {
-              updateLineHeight(Number((event.target as HTMLInputElement).value));
+              const v = Number(event.target.value);
+              if (v >= 1 && v <= 2.4) updateLineHeight(v);
             }}
           />
         </label>
 
-        <label className="style-slider">
-          <span>字间距</span>
-          <strong>{letterSpacing.toFixed(1)}px</strong>
+        <span className="toolbar-divider" />
+
+        <label className="style-ctrl">
+          <span>字距</span>
           <input
-            type="range"
+            type="number"
             min={-2}
             max={12}
             step={0.5}
             value={letterSpacing}
-            onMouseDown={() => {
-              lockSelectionAsSpan();
-            }}
-            onInput={(event) => {
-              updateLetterSpacing(Number((event.target as HTMLInputElement).value));
-            }}
+            onMouseDown={() => { lockSelectionAsSpan(); }}
+            onFocus={() => { lockSelectionAsSpan(); }}
             onChange={(event) => {
-              updateLetterSpacing(Number((event.target as HTMLInputElement).value));
+              const v = Number(event.target.value);
+              if (v >= -2 && v <= 12) updateLetterSpacing(v);
             }}
           />
         </label>
 
-        <label className="style-slider">
-          <span>内边距</span>
-          <strong>{inlinePadding}px</strong>
+        <span className="toolbar-divider" />
+
+        <label className="style-ctrl">
+          <span>边距</span>
           <input
-            type="range"
+            type="number"
             min={0}
             max={80}
             step={1}
             value={inlinePadding}
-            onMouseDown={() => {
-              lockSelectionAsSpan();
-            }}
-            onInput={(event) => {
-              updateInlinePadding(Number((event.target as HTMLInputElement).value));
-            }}
+            onMouseDown={() => { lockSelectionAsSpan(); }}
+            onFocus={() => { lockSelectionAsSpan(); }}
             onChange={(event) => {
-              updateInlinePadding(Number((event.target as HTMLInputElement).value));
+              const v = Number(event.target.value);
+              if (v >= 0 && v <= 80) updateInlinePadding(v);
             }}
           />
+          <span className="style-value">px</span>
         </label>
       </div>
 
+      {/* Row 3: Image controls (conditional) */}
       {selectedImageId ? (
-        <div className="toolbar">
-          <span>图片尺寸</span>
+        <div className="toolbar" style={{ gap: 8 }}>
+          <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>图片尺寸</span>
           <input
             type="range"
             min={20}
             max={100}
             step={1}
             value={selectedImagePercent}
+            style={{ flex: 1, accentColor: "#1a1a1a" }}
             onChange={(event) => {
               applyImageResize(Number(event.target.value));
             }}
           />
-          <span>{imageResizeLabel}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-strong)", minWidth: 32 }}>
+            {imageResizeLabel}
+          </span>
           <button
             type="button"
+            className="toolbar-btn"
+            style={{ color: "#b91c1c" }}
             onClick={() => {
               const editor = editorRef.current;
               if (!editor || !selectedImageId) {
@@ -1488,18 +1506,28 @@ export function RichEditor({
               }
             }}
           >
-            删除图片
+            ✕ 删除
           </button>
         </div>
       ) : null}
 
-      <div className="toolbar">
+      {/* Row 4: Natural language command */}
+      <div className="toolbar" style={{ gap: 6 }}>
         <input
           type="text"
           placeholder="自然语言命令，例如：把第2段改成16号蓝色并加空一行"
           value={command}
           onChange={(event) => setCommand(event.target.value)}
-          style={{ flex: 1, minWidth: 220 }}
+          style={{
+            flex: 1,
+            minWidth: 180,
+            border: "1px solid var(--stroke)",
+            borderRadius: "var(--radius-md)",
+            padding: "6px 10px",
+            fontSize: 13,
+            background: "var(--soft)",
+            outline: "none"
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -1507,8 +1535,12 @@ export function RichEditor({
             }
           }}
         />
-        <button type="button" onClick={() => void runCommand()}>
-          执行命令
+        <button
+          type="button"
+          className="toolbar-btn"
+          onClick={() => void runCommand()}
+        >
+          执行
         </button>
       </div>
 
