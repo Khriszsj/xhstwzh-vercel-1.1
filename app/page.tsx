@@ -6,6 +6,7 @@ import { RichEditor } from "@/components/RichEditor";
 import { downloadCurrentPageAsPng, exportBundleAsZip } from "@/lib/browser-export";
 import { normalizeHexColor } from "@/lib/color";
 import { createDraftProject, getTemplate, TEMPLATES } from "@/lib/defaults";
+import { applyGlobalTextColor } from "@/lib/doc";
 import { createId } from "@/lib/id";
 import { BACKGROUND_PRESETS } from "@/lib/presets";
 import type { InlineNode, PageRender, Project, RichDoc, ThemeVars } from "@/lib/types";
@@ -245,6 +246,22 @@ export default function HomePage() {
       },
       updatedAt: Date.now()
     }));
+  }, []);
+
+  const applyGlobalTextColorChange = useCallback((color: string) => {
+    const normalized = normalizeHexColor(color, "#111827");
+
+    setProject((current) => ({
+      ...current,
+      themeVars: {
+        ...current.themeVars,
+        textColor: normalized
+      },
+      doc: applyGlobalTextColor(current.doc, normalized),
+      updatedAt: Date.now()
+    }));
+
+    setMessage("已统一更新全文文字颜色。");
   }, []);
 
   const applyBackgroundPreset = useCallback(
@@ -600,11 +617,7 @@ export default function HomePage() {
                   <input
                     type="color"
                     value={normalizeHexColor(project.themeVars.textColor, "#111827")}
-                    onChange={(event) =>
-                      handleThemeChange({
-                        textColor: normalizeHexColor(event.target.value, "#111827")
-                      })
-                    }
+                    onChange={(event) => applyGlobalTextColorChange(event.target.value)}
                   />
                 </label>
 

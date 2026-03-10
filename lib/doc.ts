@@ -161,6 +161,35 @@ export function createImageNode(params: {
   };
 }
 
+export function applyGlobalTextColor(doc: RichDoc, color: string): RichDoc {
+  return {
+    ...doc,
+    nodes: doc.nodes.map((node) => {
+      if (node.type === "image") {
+        return node;
+      }
+
+      return {
+        ...node,
+        children: node.children.map((child) => {
+          if (child.type === "hardBreak") {
+            return child;
+          }
+
+          return {
+            ...child,
+            marks: {
+              ...child.marks,
+              color
+            }
+          };
+        })
+      };
+    }),
+    updatedAt: Date.now()
+  };
+}
+
 export function sanitizeRichDoc(input: RichDoc): RichDoc {
   const nodes = input.nodes
     .filter((node) => {
