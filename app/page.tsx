@@ -123,6 +123,7 @@ export default function HomePage() {
   const [presetKeyword, setPresetKeyword] = useState("");
   const [rightTab, setRightTab] = useState<"preview" | "templates" | "adjust">("preview");
   const [publishExpanded, setPublishExpanded] = useState(false);
+  const [skinCategory, setSkinCategory] = useState<"simple" | "ins">("simple");
   const exportPageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const thumbContainerRef = useRef<HTMLDivElement | null>(null);
   const [thumbScale, setThumbScale] = useState(0.13);
@@ -410,7 +411,7 @@ export default function HomePage() {
           <div className="sidebar-skins">
             <div className="sidebar-skins-label">快捷皮肤</div>
             <div className="skin-swatch-grid">
-              {BACKGROUND_PRESETS.slice(0, 6).map((preset) => (
+              {BACKGROUND_PRESETS.filter(p => !p.category || p.category === "simple").slice(0, 6).map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
@@ -664,8 +665,28 @@ export default function HomePage() {
 
                 <div className="library-section">
                   <h4>页面皮肤（作用于全部页面）</h4>
+                  
+                  <div className="right-tabs" style={{ marginBottom: 16 }}>
+                    <button
+                      type="button"
+                      className={`right-tab-btn ${skinCategory === "simple" ? "is-active" : ""}`}
+                      onClick={() => setSkinCategory("simple")}
+                    >
+                      简约风格
+                    </button>
+                    <button
+                      type="button"
+                      className={`right-tab-btn ${skinCategory === "ins" ? "is-active" : ""}`}
+                      onClick={() => setSkinCategory("ins")}
+                    >
+                      ins 风格
+                    </button>
+                  </div>
+
                   <div className="preset-grid">
-                    {filteredBackgrounds.map((preset) => (
+                    {filteredBackgrounds
+                      .filter((preset) => !preset.category || preset.category === skinCategory)
+                      .map((preset) => (
                       <button
                         key={preset.id}
                         type="button"

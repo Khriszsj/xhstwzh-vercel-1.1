@@ -1,5 +1,7 @@
 export type Align = "left" | "center" | "right";
 
+export type SkinStyle = "plain" | "glassmorphism" | "scrapbook" | "magazine" | "chat" | "gradient" | "highlight-card" | "candy-card-yellow" | "candy-card-blue";
+
 export interface TextMark {
   bold?: boolean;
   color?: string;
@@ -65,6 +67,7 @@ export interface ThemeVars {
   pagePaddingLeft: number;
   footerSignature: string;
   imageStylePreset?: string;
+  skinStyle?: SkinStyle;
 }
 
 export interface Template {

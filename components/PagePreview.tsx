@@ -138,6 +138,33 @@ export function PageCanvas(props: {
           border: mini ? "1px solid rgba(15,23,42,0.08)" : undefined
         }}
       >
+        {theme.skinStyle === 'glassmorphism' && (
+          <div style={{ position: 'absolute', inset: 40, borderRadius: 32, background: 'rgba(255, 255, 255, 0.45)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255, 255, 255, 0.65)', boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1)', zIndex: 0 }} />
+        )}
+        {theme.skinStyle === 'scrapbook' && (
+          <>
+            <div style={{ position: 'absolute', inset: '60px 48px 80px 48px', background: '#fffcf9', borderRadius: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', zIndex: 0 }} />
+            <div style={{ position: 'absolute', top: 35, left: '50%', transform: 'translateX(-50%) rotate(-3deg)', width: 140, height: 40, background: 'rgba(238,223,204,0.95)', mixBlendMode: 'multiply', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', zIndex: 0 }} />
+          </>
+        )}
+        {theme.skinStyle === 'magazine' && (
+          <>
+            <div style={{ position: 'absolute', inset: 60, border: '2px solid #d4d4d4', zIndex: 0 }} />
+            <div style={{ position: 'absolute', top: 40, left: 0, right: 0, textAlign: 'center', fontSize: 16, letterSpacing: 8, color: '#999', zIndex: 0, fontFamily: 'serif' }}>ISSUE / EDITORIAL MINIMAL</div>
+          </>
+        )}
+        {theme.skinStyle === 'highlight-card' && (
+          <>
+            <div style={{ position: 'absolute', inset: '40px 32px 40px 32px', background: '#ffffff', borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', zIndex: 0 }} />
+          </>
+        )}
+        {(theme.skinStyle === 'candy-card-yellow' || theme.skinStyle === 'candy-card-blue') && (
+          <>
+            <div style={{ position: 'absolute', inset: '48px 40px 48px 40px', background: '#ffffff', borderRadius: 24, boxShadow: '0 8px 24px rgba(0,0,0,0.08)', border: '2px solid rgba(255,255,255,0.5)', zIndex: 0 }} />
+            <div style={{ position: 'absolute', top: 20, right: 40, fontSize: 48, zIndex: 0 }}>{theme.skinStyle === 'candy-card-yellow' ? '🌼' : '☀️'}</div>
+            <div style={{ position: 'absolute', bottom: 20, left: 40, fontSize: 48, zIndex: 0 }}>{theme.skinStyle === 'candy-card-yellow' ? '🐾' : '🐱'}</div>
+          </>
+        )}
         <div
           className="xhs-preview-content"
           style={{
@@ -150,7 +177,9 @@ export function PageCanvas(props: {
             width: "100%",
             height: "100%",
             overflow: "hidden",
-            boxSizing: "border-box"
+            boxSizing: "border-box",
+            position: "relative",
+            zIndex: 1
           }}
         >
           {page.items.map((item) => {
@@ -207,7 +236,8 @@ export function PageCanvas(props: {
             right: theme.pagePaddingRight,
             bottom: 28,
             color: theme.secondaryColor,
-            fontSize: 24
+            fontSize: 24,
+            zIndex: 1
           }}
         >
           {theme.footerSignature}
