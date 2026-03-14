@@ -7,8 +7,8 @@ English: This project is a Next.js tool for Xiaohongshu long-form creators, and 
 每次打开页面都会进入默认编辑界面，当前标签页内保留编辑状态，刷新或关闭后内容会重置。
 English: Each visit starts from the default editor, the current tab keeps its working state, and refresh or close will reset the content.
 
-当前迭代版本：`v1.3.0`
-English: Current iteration version: `v1.3.0`
+当前迭代版本：`v1.4.0`
+English: Current iteration version: `v1.4.0`
 
 - 富文本编辑（加粗、字号、颜色、换行、空格保留）
   English: Rich text editing (bold, font size, color, line breaks, and preserved spaces)
@@ -25,8 +25,17 @@ English: Current iteration version: `v1.3.0`
 - 浏览器端导出发布包（PNG 图集 + publish.md + meta.json + zip）
   English: Export a publishing bundle in the browser (PNG pages + publish.md + meta.json + zip)
 
-## 0. v1.3 迭代重点
-> 0. v1.3 Highlights
+## 0. v1.4 Release Highlights
+> 0. v1.4 Release Highlights
+
+- The template panel now includes "Simple" and "Ins" skin categories for faster switching.
+- Added multiple ins-style page skins, including glassmorphism, scrapbook, and creamy collage-inspired looks.
+- Template and skin cards are presented more clearly for quicker browsing and selection.
+
+See [docs/ITERATION-1.4.md](docs/ITERATION-1.4.md) for the full iteration notes.
+
+## 0.1. v1.3 迭代重点
+> 0.1. v1.3 Highlights
 
 - 字号输入框支持手动删除并重新输入任意合法字号，按 Enter 或失焦即时应用到选中文本
   English: Font size input now supports clearing and manually typing any valid size; Enter or blur applies it to the selected text
@@ -38,8 +47,8 @@ English: Current iteration version: `v1.3.0`
 详细说明见 [docs/ITERATION-1.3.md](docs/ITERATION-1.3.md)。
 English: See [docs/ITERATION-1.3.md](docs/ITERATION-1.3.md) for the full iteration notes.
 
-## 0.1. v1.1 迭代重点
-> 0.1. v1.1 Highlights
+## 0.2. v1.1 迭代重点
+> 0.2. v1.1 Highlights
 
 - 左侧栏改为“快捷皮肤在上、页面缩略图在下”
   English: The left sidebar now places quick skins above page thumbnails
