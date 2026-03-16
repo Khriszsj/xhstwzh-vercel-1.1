@@ -198,6 +198,7 @@ button:disabled {
   cursor: pointer;
   overflow: hidden;
   display: block;
+  text-align: left;
   transition: border-color var(--ease), box-shadow var(--ease), transform var(--ease);
 }
 
