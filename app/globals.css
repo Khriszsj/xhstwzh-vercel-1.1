@@ -142,6 +142,8 @@ button:disabled {
   border: 1px solid var(--stroke);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
+  min-width: 0;          /* prevent grid blowout from oversized children */
+  overflow: hidden;       /* clip any content that still overflows */
 }
 
 .panel-header {
@@ -430,6 +432,17 @@ button:disabled {
   gap: 7px;
 }
 
+/* Paragraph alignment button group */
+.align-btn-group {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.align-btn {
+  padding: 4px 5px;
+}
+
 /* Color swatches */
 .color-swatch-group {
   display: flex;
@@ -534,24 +547,26 @@ button:disabled {
 /* ---- EDITOR ---- */
 
 .editor-root {
-  min-height: 480px;
-  max-height: calc(100vh - 320px);
   overflow: auto;
   padding: 12px;
+  max-height: calc(100vh - 320px);
 }
 
 .editor-canvas {
-  width: 100%;
-  min-height: 600px;
+  /* Render at the exact output canvas width so the paginator's line breaks
+     match the editor's line wraps 1-for-1. JS applies a CSS zoom to scale
+     the canvas down to the available panel width. */
+  width: 1080px;
+  min-height: 1440px;
   border: 1px solid var(--stroke);
   border-radius: var(--radius-md);
-  padding: 14px;
+  /* 88px matches pagePaddingLeft/Right in the default theme */
+  padding: 88px;
   outline: none;
   background: #fff;
-  overflow-x: hidden;
-  overflow-y: visible;
   word-break: break-word;
   overflow-wrap: anywhere;
+  transform-origin: top left;
   transition: border-color var(--ease), box-shadow var(--ease);
 }
 
@@ -1191,7 +1206,7 @@ button:disabled {
   }
 
   .editor-root {
-    max-height: none;
+    overflow: visible;
   }
 
   .style-controls-row {

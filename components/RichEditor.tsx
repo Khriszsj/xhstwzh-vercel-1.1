@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent } from "react";
 import { editorElementToRichDoc, richDocToEditorHtml } from "./editor-serializer";
 import { normalizeHexColor } from "@/lib/color";
@@ -454,6 +454,7 @@ export function RichEditor({
   onCommandFeedback,
   fontFamily
 }: RichEditorProps) {
+  const editorRootRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastLocalUpdateRef = useRef(0);
@@ -492,6 +493,36 @@ export function RichEditor({
 
     element.innerHTML = richDocToEditorHtml(doc);
   }, [doc]);
+
+  // Dynamically zoom the 1080px-wide editor canvas to fit the available panel width
+  useLayoutEffect(() => {
+    const root = editorRootRef.current;
+    const canvas = editorRef.current;
+    if (!root || !canvas) return;
+
+    const update = () => {
+      const available = root.clientWidth - 24; // 12px padding each side
+      const canvasNaturalWidth = 1080;
+      if (available > 0 && available < canvasNaturalWidth) {
+        const z = available / canvasNaturalWidth;
+        canvas.style.zoom = String(z);
+        // Set root height to match zoomed canvas so scroll works correctly
+        root.style.height = `${canvas.scrollHeight * z + 24}px`;
+        root.style.maxHeight = "calc(100vh - 320px)";
+        root.style.overflow = "auto";
+      } else {
+        canvas.style.zoom = "";
+        root.style.height = "";
+        root.style.maxHeight = "calc(100vh - 320px)";
+        root.style.overflow = "auto";
+      }
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, []);
 
   const emitDoc = useCallback(() => {
     const element = editorRef.current;
@@ -1663,7 +1694,7 @@ export function RichEditor({
         </button>
       </div>
 
-      <div className="editor-root">
+      <div className="editor-root" ref={editorRootRef}>
         <div
           ref={editorRef}
           className="editor-canvas"
