@@ -217,14 +217,22 @@ export function PageCanvas(props: {
                   lineHeight: `${item.lineHeight}px`,
                   fontSize: `${theme.bodyFontSize}px`,
                   whiteSpace: "pre",
-                  overflow: "hidden"
+                  textAlign: item.textAlign || "left",
+                  letterSpacing: item.justifySpacing ? `${item.justifySpacing}px` : undefined
                 }}
               >
-                {item.runs.map((run, index) => (
-                  <span key={`${item.id}-${index}`} style={runStyle(theme, run)}>
-                    {run.text}
-                  </span>
-                ))}
+                {item.runs.map((run, index) => {
+                  const style = runStyle(theme, run);
+                  // When justify-spacing is active, add it on top of any existing letter-spacing
+                  if (item.justifySpacing && run.marks?.letterSpacing) {
+                    style.letterSpacing = `${run.marks.letterSpacing + item.justifySpacing}px`;
+                  }
+                  return (
+                    <span key={`${item.id}-${index}`} style={style}>
+                      {run.text}
+                    </span>
+                  );
+                })}
               </div>
             );
           })}

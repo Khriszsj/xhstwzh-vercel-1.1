@@ -6,12 +6,13 @@ import { editorElementToRichDoc, richDocToEditorHtml } from "./editor-serializer
 import { normalizeHexColor } from "@/lib/color";
 import { createId } from "@/lib/id";
 import { isSupportedImageMimeType, SUPPORTED_IMAGE_EXTENSIONS } from "@/lib/image-file";
-import type { RichDoc } from "@/lib/types";
+import type { Align, RichDoc } from "@/lib/types";
 
 interface RichEditorProps {
   doc: RichDoc;
   onDocChange: (doc: RichDoc) => void;
   onCommandFeedback: (message: string) => void;
+  fontFamily?: string;
 }
 
 interface ParagraphAnchorSnapshot {
@@ -450,7 +451,8 @@ function isSupportedImageFile(file: File): boolean {
 export function RichEditor({
   doc,
   onDocChange,
-  onCommandFeedback
+  onCommandFeedback,
+  fontFamily
 }: RichEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -474,6 +476,7 @@ export function RichEditor({
   const [letterSpacing, setLetterSpacing] = useState(0);
   const [inlinePadding, setInlinePadding] = useState(0);
   const [inlineColor, setInlineColor] = useState(BODY_TEXT_COLOR);
+  const [textAlign, setTextAlign] = useState<Align>("left");
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [selectedImagePercent, setSelectedImagePercent] = useState(100);
 
@@ -554,6 +557,11 @@ export function RichEditor({
       : 0;
     setInlinePadding(Math.max(0, Math.min(80, Math.round(nextPadding))));
     setInlineColor(normalizeHexColor(computed.color || BODY_TEXT_COLOR, BODY_TEXT_COLOR));
+
+    // Read text-align from the closest paragraph element
+    const paragraph = getClosestParagraph(anchorNode);
+    const paragraphAlign = paragraph?.style.textAlign as Align | "" || "";
+    setTextAlign(paragraphAlign === "center" || paragraphAlign === "right" ? paragraphAlign : "left");
   }, []);
 
   const rememberSelection = useCallback(() => {
@@ -1272,6 +1280,42 @@ export function RichEditor({
     [applySelectionStyle]
   );
 
+  const applyParagraphAlignment = useCallback(
+    (align: Align) => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      // Only use the LIVE browser selection — ignore stale saved ranges.
+      // This ensures alignment only applies to explicitly selected text.
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+
+      const range = selection.getRangeAt(0);
+      if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) {
+        return; // Selection is not inside the editor — do nothing
+      }
+
+      const paragraphs = collectParagraphsInRange(editor, range);
+
+      if (!paragraphs.length) {
+        const fallback = getClosestParagraph(range.startContainer);
+        if (fallback) {
+          paragraphs.push(fallback);
+        } else {
+          return;
+        }
+      }
+
+      for (const p of paragraphs) {
+        p.style.textAlign = align === "left" ? "" : align;
+      }
+
+      setTextAlign(align);
+      emitDoc();
+    },
+    [emitDoc]
+  );
+
   const imageResizeLabel = useMemo(() => `${selectedImagePercent}%`, [selectedImagePercent]);
 
   return (
@@ -1313,6 +1357,50 @@ export function RichEditor({
         >
           B
         </button>
+
+        <span className="toolbar-divider" />
+
+        {/* Text alignment buttons */}
+        <div className="color-swatch-group" role="group" aria-label="文本对齐">
+          {([
+            { align: "left" as const, title: "左对齐", icon: (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="2" width="14" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="1" y="6" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="1" y="10" width="14" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="1" y="14" width="8" height="1.5" rx="0.5" fill="currentColor"/>
+              </svg>
+            )},
+            { align: "center" as const, title: "居中对齐", icon: (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="2" width="14" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="3" y="6" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="1" y="10" width="14" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="4" y="14" width="8" height="1.5" rx="0.5" fill="currentColor"/>
+              </svg>
+            )},
+            { align: "right" as const, title: "右对齐", icon: (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="2" width="14" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="5" y="6" width="10" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="1" y="10" width="14" height="1.5" rx="0.5" fill="currentColor"/>
+                <rect x="7" y="14" width="8" height="1.5" rx="0.5" fill="currentColor"/>
+              </svg>
+            )}
+          ]).map(({ align, title, icon }) => (
+            <button
+              key={align}
+              type="button"
+              className={`toolbar-btn ${textAlign === align ? "is-active" : ""}`}
+              onMouseDown={(e) => { e.preventDefault(); lockSelectionAsSpan(); }}
+              onClick={() => { applyParagraphAlignment(align); }}
+              title={title}
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 28, padding: "4px 6px" }}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
 
         <span className="toolbar-divider" />
 
@@ -1579,6 +1667,7 @@ export function RichEditor({
         <div
           ref={editorRef}
           className="editor-canvas"
+          style={fontFamily ? { fontFamily } : undefined}
           contentEditable
           suppressContentEditableWarning
           onInput={emitDoc}
@@ -1616,6 +1705,25 @@ export function RichEditor({
               event.preventDefault();
               document.execCommand("insertUnorderedList");
               emitDoc();
+            }
+
+            // Delete selected image with Delete or Backspace key
+            if (
+              (event.key === "Delete" || event.key === "Backspace") &&
+              selectedImageId
+            ) {
+              const editor = editorRef.current;
+              if (!editor) return;
+
+              const target = editor.querySelector(
+                `figure[data-node-id="${selectedImageId}"]`
+              );
+              if (target) {
+                event.preventDefault();
+                target.remove();
+                setSelectedImageId(null);
+                emitDoc();
+              }
             }
           }}
           onBlur={emitDoc}

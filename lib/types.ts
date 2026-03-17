@@ -30,6 +30,7 @@ export interface ParagraphNode {
   id: string;
   children: InlineNode[];
   spacingAfter?: number;
+  textAlign?: Align;
 }
 
 export interface ImageNode {
@@ -118,6 +119,9 @@ export interface PageLineItem {
   id: string;
   runs: TextRun[];
   lineHeight: number;
+  textAlign?: Align;
+  /** Extra letter-spacing (px) to distribute across characters so the line is flush-right */
+  justifySpacing?: number;
 }
 
 export interface PageSpacerItem {

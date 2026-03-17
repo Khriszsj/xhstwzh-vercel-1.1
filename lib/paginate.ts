@@ -1,5 +1,6 @@
 import { createId } from "./id";
 import type {
+  Align,
   InlineNode,
   PageImageItem,
   PageItem,
@@ -14,9 +15,13 @@ import type {
   ThemeVars
 } from "./types";
 
+export type CharMeasurer = (char: string, fontSize: number, bold: boolean, letterSpacing: number) => number;
+
 interface PreparedLine {
   runs: TextRun[];
   lineHeight: number;
+  textAlign?: Align;
+  justifySpacing?: number;
 }
 
 interface MeasureContext {
@@ -67,10 +72,12 @@ function marksEqual(a?: TextMark, b?: TextMark): boolean {
     (a?.paddingInline ?? 0) === (b?.paddingInline ?? 0);
 }
 
-function makeLineFromRuns(runs: TextRun[], lineHeight: number): PreparedLine {
+function makeLineFromRuns(runs: TextRun[], lineHeight: number, textAlign?: Align, justifySpacing?: number): PreparedLine {
   return {
     runs,
-    lineHeight: Math.max(20, lineHeight)
+    lineHeight: Math.max(20, lineHeight),
+    textAlign,
+    justifySpacing
   };
 }
 
@@ -94,22 +101,50 @@ function pushChar(
   return runs;
 }
 
-function paragraphToLines(node: ParagraphNode, ctx: MeasureContext): PreparedLine[] {
+function countChars(runs: TextRun[]): number {
+  let count = 0;
+  for (const run of runs) {
+    for (const _ of run.text) {
+      count++;
+    }
+  }
+  return count;
+}
+
+function paragraphToLines(node: ParagraphNode, ctx: MeasureContext, measureChar?: CharMeasurer): PreparedLine[] {
   const lines: PreparedLine[] = [];
   let runs: TextRun[] = [];
   let lineWidth = 0;
+  let lineCharCount = 0;
   let maxLineHeight = Math.max(20, Math.round(ctx.baseFontSize * ctx.lineHeightRatio));
+  const textAlign = node.textAlign;
 
-  const flushLine = (forceEmpty = false): void => {
+  const flushLine = (forceEmpty = false, overflow = false): void => {
     if (!runs.length && !forceEmpty) {
       return;
     }
 
     const lineRuns = runs.length ? runs : [{ text: "", marks: { fontSize: ctx.baseFontSize } }];
-    lines.push(makeLineFromRuns(lineRuns, maxLineHeight));
+
+    // For overflow-wrapped lines: distribute remaining gap across characters
+    let justifySpacing: number | undefined;
+    if (overflow && lineRuns.length > 0) {
+      const charCount = countChars(lineRuns);
+      if (charCount > 1) {
+        const gap = ctx.contentWidth - lineWidth;
+        // Only justify if the gap is small (< 1 full char width) — avoids
+        // spreading huge gaps on very short lines
+        if (gap > 0 && gap < ctx.baseFontSize * 1.2) {
+          justifySpacing = Number((gap / (charCount - 1)).toFixed(3));
+        }
+      }
+    }
+
+    lines.push(makeLineFromRuns(lineRuns, maxLineHeight, textAlign, justifySpacing));
 
     runs = [];
     lineWidth = 0;
+    lineCharCount = 0;
     maxLineHeight = Math.max(20, Math.round(ctx.baseFontSize * ctx.lineHeightRatio));
   };
 
@@ -125,35 +160,39 @@ function paragraphToLines(node: ParagraphNode, ctx: MeasureContext): PreparedLin
       }
 
       if (char === "\n") {
-        flushLine(true);
+        flushLine(true, false);
         continue;
       }
 
       const fontSize = inline.marks?.fontSize ?? ctx.baseFontSize;
       const letterSpacing = inline.marks?.letterSpacing ?? 0;
-      const width = measureCharWidth(char, fontSize, inline.marks?.bold, letterSpacing);
+      const width = measureChar
+        ? measureChar(char, fontSize, inline.marks?.bold ?? false, letterSpacing)
+        : measureCharWidth(char, fontSize, inline.marks?.bold, letterSpacing);
       const lineHeightRatio = inline.marks?.lineHeight ?? ctx.lineHeightRatio;
 
       if (lineWidth + width > ctx.contentWidth && lineWidth > 0) {
-        flushLine();
+        flushLine(false, true); // overflow = true → this line is "full"
       }
 
       pushChar(runs, char, inline.marks);
       lineWidth += width;
+      lineCharCount++;
       maxLineHeight = Math.max(maxLineHeight, Math.round(fontSize * lineHeightRatio));
     }
   };
 
   for (const inline of node.children) {
     if (inline.type === "hardBreak") {
-      flushLine(true);
+      flushLine(true, false);
       continue;
     }
 
     processTextNode(inline);
   }
 
-  flushLine();
+  // Last line of a paragraph — never justify (like CSS text-align: justify)
+  flushLine(false, false);
   return lines;
 }
 
@@ -169,8 +208,9 @@ export function paginateDoc(params: {
   doc: RichDoc;
   template: Template;
   theme: ThemeVars;
+  measureChar?: CharMeasurer;
 }): PaginationResult {
-  const { doc, template, theme } = params;
+  const { doc, template, theme, measureChar } = params;
   const warnings: string[] = [];
 
   const contentWidth =
@@ -207,14 +247,16 @@ export function paginateDoc(params: {
         contentWidth,
         baseFontSize: theme.bodyFontSize,
         lineHeightRatio: theme.bodyLineHeight
-      });
+      }, measureChar);
 
       for (const line of lines) {
         const lineItem: PageLineItem = {
           type: "line",
           id: createId("line"),
           runs: line.runs,
-          lineHeight: line.lineHeight
+          lineHeight: line.lineHeight,
+          textAlign: line.textAlign,
+          justifySpacing: line.justifySpacing
         };
         pushItem(lineItem, line.lineHeight, true);
       }

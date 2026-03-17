@@ -1,7 +1,7 @@
 "use client";
 
 import { createId } from "@/lib/id";
-import type { InlineNode, RichDoc, TextMark } from "@/lib/types";
+import type { Align, InlineNode, RichDoc, TextMark } from "@/lib/types";
 
 function escapeHtml(source: string): string {
   return source
@@ -122,7 +122,8 @@ export function richDocToEditorHtml(doc: RichDoc): string {
       }
 
       const children = node.children.map(inlineToHtml).join("");
-      return `<p data-node-type="paragraph" data-node-id="${node.id}" style="margin:0 0 ${node.spacingAfter ?? 14}px;white-space:pre-wrap">${children || "<br/>"}</p>`;
+      const alignStyle = node.textAlign && node.textAlign !== "left" ? `text-align:${node.textAlign};` : "";
+      return `<p data-node-type="paragraph" data-node-id="${node.id}" style="${alignStyle}margin:0 0 ${node.spacingAfter ?? 14}px;white-space:pre-wrap">${children || "<br/>"}</p>`;
     })
     .join("\n");
 }
@@ -317,7 +318,8 @@ function pushParagraph(
   nodes: RichDoc["nodes"],
   inlineBucket: InlineNode[],
   paragraphId?: string,
-  keepEmpty = false
+  keepEmpty = false,
+  textAlign?: Align
 ): void {
   const children = inlineBucket.length
     ? inlineBucket
@@ -337,7 +339,8 @@ function pushParagraph(
     type: "paragraph",
     id: paragraphId || createId("para"),
     spacingAfter: 14,
-    children
+    children,
+    textAlign: textAlign && textAlign !== "left" ? textAlign : undefined
   });
 }
 
@@ -374,11 +377,13 @@ export function editorElementToRichDoc(root: HTMLElement, previous: RichDoc): Ri
     }
 
     const paragraphMarks = parseMarks(rawNode);
+    const rawAlign = rawNode.style.textAlign as Align | "";
+    const textAlign: Align | undefined = rawAlign === "center" || rawAlign === "right" ? rawAlign : undefined;
     let inlineBucket: InlineNode[] = [];
 
     rawNode.childNodes.forEach((child) => {
       if (child instanceof HTMLElement && isImageElement(child)) {
-        pushParagraph(nodes, inlineBucket, rawNode.dataset.nodeId || createId("para"));
+        pushParagraph(nodes, inlineBucket, rawNode.dataset.nodeId || createId("para"), false, textAlign);
         inlineBucket = [];
 
         const imageNode = parseImageElement(child);
@@ -392,7 +397,7 @@ export function editorElementToRichDoc(root: HTMLElement, previous: RichDoc): Ri
     });
 
     const keepEmpty = rawNode.tagName === "P" || rawNode.tagName === "DIV";
-    pushParagraph(nodes, inlineBucket, rawNode.dataset.nodeId || createId("para"), keepEmpty);
+    pushParagraph(nodes, inlineBucket, rawNode.dataset.nodeId || createId("para"), keepEmpty, textAlign);
   });
 
   return {

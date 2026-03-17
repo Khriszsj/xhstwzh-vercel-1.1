@@ -9,7 +9,7 @@ import { checkCompliance } from "@/lib/compliance";
 import { createDraftProject, getTemplate, TEMPLATES } from "@/lib/defaults";
 import { applyGlobalTextColor } from "@/lib/doc";
 import { createId } from "@/lib/id";
-import { paginateDoc } from "@/lib/paginate";
+import { paginateDoc, type CharMeasurer } from "@/lib/paginate";
 import { BACKGROUND_PRESETS } from "@/lib/presets";
 import { buildSuggestions } from "@/lib/suggestions";
 import type { InlineNode, PageRender, Project, RichDoc, ThemeVars } from "@/lib/types";
@@ -99,6 +99,7 @@ function normalizeDocForCompare(doc: RichDoc): Record<string, unknown> {
       return {
         type: "paragraph",
         spacingAfter: node.spacingAfter ?? null,
+        textAlign: node.textAlign ?? null,
         children: node.children.map((child) => normalizeInlineNode(child))
       };
     })
@@ -127,8 +128,21 @@ export default function HomePage() {
   const exportPageRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const thumbContainerRef = useRef<HTMLDivElement | null>(null);
   const [thumbScale, setThumbScale] = useState(0.13);
+  const canvasMeasurerRef = useRef<CharMeasurer | null>(null);
 
   const activeTemplate = useMemo(() => getTemplate(project.templateId), [project.templateId]);
+
+  // Create a canvas-based character measurer for accurate text layout
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const fontFamily = project.themeVars.fontFamily;
+    canvasMeasurerRef.current = (char, fontSize, bold, letterSpacing) => {
+      ctx.font = `${bold ? "bold" : "normal"} ${fontSize}px ${fontFamily}`;
+      return ctx.measureText(char).width + letterSpacing;
+    };
+  }, [project.themeVars.fontFamily]);
 
   // Measure sidebar thumbnail container to compute correct scale for PageCanvas
   useLayoutEffect(() => {
@@ -188,7 +202,8 @@ export default function HomePage() {
     const paginateResult = paginateDoc({
       doc: docProject.doc,
       template: getTemplate(docProject.templateId),
-      theme: docProject.themeVars
+      theme: docProject.themeVars,
+      measureChar: canvasMeasurerRef.current ?? undefined
     });
     const complianceIssues = checkCompliance(docProject.doc);
     const suggestionResult = buildSuggestions(docProject.doc);
@@ -483,7 +498,12 @@ export default function HomePage() {
           </section>
 
           {/* Rich editor */}
-          <RichEditor doc={project.doc} onDocChange={updateDoc} onCommandFeedback={setMessage} />
+          <RichEditor
+            doc={project.doc}
+            onDocChange={updateDoc}
+            onCommandFeedback={setMessage}
+            fontFamily={project.themeVars.fontFamily}
+          />
 
           {/* Publish assistant bar */}
           <section className="panel publish-bar-section">
