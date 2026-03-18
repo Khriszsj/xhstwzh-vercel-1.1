@@ -85,9 +85,9 @@ type TitleFn = (core: string, secondary: string) => string;
 
 const TOPIC_TEMPLATES: Record<string, TitleFn[]> = {
   职场求职: [
-    (c, s) => `${c}真实经历：我是怎么一步步度过的`,
-    (c, s) => `${c}避坑指南，这些弯路不要再走`,
-    (c, s) => `关于${c}，我做了这5件准备`,
+    (c) => `${c}真实经历：我是怎么一步步度过的`,
+    (c) => `${c}避坑指南，这些弯路不要再走`,
+    (c) => `关于${c}，我做了这5件准备`,
     (c, s) => `${c}全流程复盘，附${s}清单`,
     (c)    => `写给同样面对${c}的你，别慌`,
   ],

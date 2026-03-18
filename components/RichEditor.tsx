@@ -756,25 +756,29 @@ export function RichEditor({
       return;
     }
 
-    // Already inside an active-selection span – just remember selection
-    let node: Node | null = range.startContainer;
-    while (node && node !== editor) {
-      if (
-        node instanceof HTMLElement &&
-        node.hasAttribute("data-active-selection") &&
-        node.tagName === "SPAN" &&
-        node.contains(range.endContainer)
-      ) {
-        rememberSelection();
-        return;
-      }
-      node = node.parentElement;
+    // Already has active-selection markers – just remember selection
+    if (editor.querySelector("[data-active-selection]")) {
+      rememberSelection();
+      return;
     }
 
     // Clear any existing markers
     clearActiveSelectionMarkers();
 
-    // Create wrapper span with persistent highlight
+    // 检测是否跨段落选区
+    const startParagraph = getClosestParagraph(range.startContainer);
+    const endParagraph = getClosestParagraph(range.endContainer);
+    const isCrossParagraph = startParagraph && endParagraph && startParagraph !== endParagraph;
+
+    if (isCrossParagraph) {
+      // 跨段落选区：标记所有涉及的段落，避免 extractContents 跨 <p> 出错
+      const paragraphs = collectParagraphsInRange(editor, range);
+      paragraphs.forEach((p) => p.setAttribute("data-active-selection", "true"));
+      rememberSelection();
+      return;
+    }
+
+    // 单段落选区：用 span 包裹选中文字以保留精确高亮
     const span = document.createElement("span");
     span.setAttribute("data-active-selection", "true");
 
@@ -796,6 +800,10 @@ export function RichEditor({
       selectionAnchorRef.current = createParagraphAnchorSnapshot(editor, nextRange);
       selectionExpandedSnapshotRef.current = createRangeSelectionSnapshot(editor, nextRange);
     } catch {
+      // 单段落内 extractContents 失败的兜底：标记段落
+      if (startParagraph) {
+        startParagraph.setAttribute("data-active-selection", "true");
+      }
       rememberSelection();
     }
   }, [clearActiveSelectionMarkers, rememberSelection]);
@@ -825,7 +833,7 @@ export function RichEditor({
       if (!editor) return;
       const panel = editor.closest(".panel");
 
-      if (target.closest(".toolbar") || target.closest(".style-slider-grid")) {
+      if (target.closest(".toolbar") || target.closest(".style-controls-row") || target.closest(".style-slider-grid")) {
         return;
       }
 

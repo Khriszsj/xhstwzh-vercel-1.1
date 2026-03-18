@@ -104,9 +104,7 @@ function pushChar(
 function countChars(runs: TextRun[]): number {
   let count = 0;
   for (const run of runs) {
-    for (const _ of run.text) {
-      count++;
-    }
+    count += [...run.text].length;
   }
   return count;
 }
@@ -115,7 +113,6 @@ function paragraphToLines(node: ParagraphNode, ctx: MeasureContext, measureChar?
   const lines: PreparedLine[] = [];
   let runs: TextRun[] = [];
   let lineWidth = 0;
-  let lineCharCount = 0;
   let maxLineHeight = Math.max(20, Math.round(ctx.baseFontSize * ctx.lineHeightRatio));
   const textAlign = node.textAlign;
 
@@ -144,7 +141,6 @@ function paragraphToLines(node: ParagraphNode, ctx: MeasureContext, measureChar?
 
     runs = [];
     lineWidth = 0;
-    lineCharCount = 0;
     maxLineHeight = Math.max(20, Math.round(ctx.baseFontSize * ctx.lineHeightRatio));
   };
 
@@ -177,7 +173,6 @@ function paragraphToLines(node: ParagraphNode, ctx: MeasureContext, measureChar?
 
       pushChar(runs, char, inline.marks);
       lineWidth += width;
-      lineCharCount++;
       maxLineHeight = Math.max(maxLineHeight, Math.round(fontSize * lineHeightRatio));
     }
   };

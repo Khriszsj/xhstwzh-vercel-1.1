@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeHexColor } from "@/lib/color";
 import { createId } from "@/lib/id";
 import type { Align, InlineNode, RichDoc, TextMark } from "@/lib/types";
 
@@ -10,21 +11,6 @@ function escapeHtml(source: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function rgbToHex(color: string): string {
-  const normalized = color.trim().toLowerCase();
-  if (/^#[0-9a-f]{6}$/.test(normalized)) {
-    return normalized;
-  }
-
-  const match = normalized.match(/rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (!match) {
-    return color;
-  }
-
-  const toHex = (value: string) => Number(value).toString(16).padStart(2, "0");
-  return `#${toHex(match[1])}${toHex(match[2])}${toHex(match[3])}`;
 }
 
 function extractAssetIdFromSrc(src: string): string {
@@ -147,7 +133,7 @@ function parseMarks(element: HTMLElement, inherited?: TextMark): TextMark | unde
 
   const color = element.style.color || element.getAttribute("color") || "";
   if (color) {
-    marks.color = rgbToHex(color);
+    marks.color = normalizeHexColor(color, color);
   }
 
   const inlineFontSize = element.style.fontSize;
