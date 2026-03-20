@@ -36,6 +36,43 @@ async function ensureFontsReady(): Promise<void> {
   }
 }
 
+function isMountedExportNode(node: HTMLElement | null | undefined): node is HTMLElement {
+  return Boolean(
+    node &&
+    node.isConnected &&
+    node.scrollWidth > 0 &&
+    node.scrollHeight > 0
+  );
+}
+
+function waitForNextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
+async function resolveExportPageNode(input: {
+  pageNo: number;
+  node?: HTMLElement | null;
+  getPageNode?: (pageNo: number) => HTMLElement | null;
+  maxRetries?: number;
+}): Promise<HTMLElement> {
+  const maxRetries = Math.max(0, input.maxRetries ?? 3);
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const candidate = input.getPageNode?.(input.pageNo) ?? input.node ?? null;
+    if (isMountedExportNode(candidate)) {
+      return candidate;
+    }
+
+    if (attempt < maxRetries) {
+      await waitForNextFrame();
+    }
+  }
+
+  throw new Error(`第 ${input.pageNo} 页导出节点尚未挂载完成，请稍后重试。`);
+}
+
 async function renderPageBlob(node: HTMLElement): Promise<Blob> {
   await ensureFontsReady();
 
@@ -88,11 +125,17 @@ function buildPublishMarkdown(input: {
 }
 
 export async function downloadCurrentPageAsPng(input: {
-  node: HTMLElement;
+  node?: HTMLElement | null;
+  getPageNode?: (pageNo: number) => HTMLElement | null;
   title: string;
   pageNo: number;
 }): Promise<void> {
-  const blob = await renderPageBlob(input.node);
+  const node = await resolveExportPageNode({
+    pageNo: input.pageNo,
+    node: input.node,
+    getPageNode: input.getPageNode
+  });
+  const blob = await renderPageBlob(node);
   triggerBlobDownload(blob, buildPageFileName(input.title, input.pageNo));
 }
 
@@ -107,11 +150,10 @@ export async function exportBundleAsZip(input: {
   const zip = new JSZip();
 
   for (let pageNo = 1; pageNo <= input.pageCount; pageNo += 1) {
-    const node = input.getPageNode(pageNo);
-    if (!node) {
-      throw new Error(`第 ${pageNo} 页导出节点不存在。`);
-    }
-
+    const node = await resolveExportPageNode({
+      pageNo,
+      getPageNode: input.getPageNode
+    });
     const blob = await renderPageBlob(node);
     zip.file(buildPageFileName(input.title, pageNo), await blob.arrayBuffer());
   }

@@ -1,26 +1,25 @@
-import { z } from "zod";
+import { formatZodIssues, paginateRequestSchema } from "@/lib/api-schemas";
 import { getTemplate } from "@/lib/defaults";
 import { sanitizeRichDoc } from "@/lib/doc";
 import { fail, ok } from "@/lib/http";
 import { paginateDoc } from "@/lib/paginate";
-import type { RichDoc, ThemeVars } from "@/lib/types";
-
-const schema = z.object({
-  templateId: z.string().min(1).optional(),
-  themeVars: z.custom<ThemeVars>(),
-  doc: z.custom<RichDoc>()
-});
 
 export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const parsed = paginateRequestSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return fail(formatZodIssues(parsed.error.issues), 422);
+  }
+
   try {
-    const payload = schema.parse(await request.json());
-    const template = getTemplate(payload.templateId);
-    const doc = sanitizeRichDoc(payload.doc);
+    const template = getTemplate(parsed.data.templateId);
+    const doc = sanitizeRichDoc(parsed.data.doc);
 
     const result = paginateDoc({
       doc,
       template,
-      theme: payload.themeVars
+      theme: parsed.data.themeVars
     });
 
     return ok({
@@ -28,9 +27,6 @@ export async function POST(request: Request) {
       warnings: result.warnings
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(error.issues.map((item) => item.message).join("; "), 422);
-    }
     return fail(error instanceof Error ? error.message : "Failed to paginate", 500);
   }
 }

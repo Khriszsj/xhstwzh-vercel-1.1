@@ -343,16 +343,11 @@ export default function HomePage() {
 
   const downloadPage = useCallback(
     async (pageNo: number) => {
-      const node = exportPageRefs.current[pageNo];
-      if (!node) {
-        setMessage("当前页尚未渲染完成，请稍后再试。");
-        return;
-      }
-
       try {
         setMessage(`正在下载第 ${pageNo} 页...`);
         await downloadCurrentPageAsPng({
-          node,
+          node: exportPageRefs.current[pageNo] || null,
+          getPageNode: (targetPageNo) => exportPageRefs.current[targetPageNo] || null,
           title: project.title,
           pageNo
         });

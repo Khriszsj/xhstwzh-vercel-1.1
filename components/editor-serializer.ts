@@ -52,6 +52,32 @@ function normalizeImageSrc(rawSrc: string): string {
   return src;
 }
 
+function parseFiniteDimension(value: unknown): number | null {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim().length > 0
+        ? Number.parseFloat(value)
+        : Number.NaN;
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return numericValue;
+}
+
+function resolveImageDimension(candidates: unknown[], fallback: number): number {
+  for (const candidate of candidates) {
+    const parsed = parseFiniteDimension(candidate);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+}
+
 function markStyle(marks?: TextMark): string {
   if (!marks) {
     return "white-space:break-spaces";
@@ -261,33 +287,44 @@ function parseImageElement(element: HTMLElement): Extract<RichDoc["nodes"][numbe
     return null;
   }
 
-  const originalWidth = Number(
-    container.dataset.originalWidth ||
-      container.dataset.width ||
-      image.naturalWidth ||
-      image.clientWidth ||
-      640
+  const originalWidth = resolveImageDimension(
+    [
+      container.dataset.originalWidth,
+      container.dataset.width,
+      image.naturalWidth,
+      image.clientWidth
+    ],
+    640
   );
-  const originalHeight = Number(
-    container.dataset.originalHeight ||
-      container.dataset.height ||
-      image.naturalHeight ||
-      image.clientHeight ||
-      640
+  const originalHeight = resolveImageDimension(
+    [
+      container.dataset.originalHeight,
+      container.dataset.height,
+      image.naturalHeight,
+      image.clientHeight
+    ],
+    640
   );
-
-  const renderWidth = Number(
-    container.dataset.renderWidth ||
-      parseInt(image.style.width || "", 10) ||
-      image.clientWidth ||
+  const renderWidth = resolveImageDimension(
+    [
+      container.dataset.renderWidth,
+      image.style.width,
+      image.clientWidth,
       originalWidth
+    ],
+    originalWidth
   );
-
-  const renderHeight = Number(
-    container.dataset.renderHeight ||
-      parseInt(image.style.height || "", 10) ||
+  const renderHeight = resolveImageDimension(
+    [
+      container.dataset.renderHeight,
+      image.style.height,
+      image.clientHeight,
       Math.round((originalHeight / Math.max(1, originalWidth)) * renderWidth)
+    ],
+    Math.round((originalHeight / Math.max(1, originalWidth)) * renderWidth)
   );
+  const rawAlign = container.dataset.align;
+  const align: Align = rawAlign === "left" || rawAlign === "right" ? rawAlign : "center";
 
   return {
     type: "image",
@@ -296,7 +333,7 @@ function parseImageElement(element: HTMLElement): Extract<RichDoc["nodes"][numbe
     src,
     width: Math.max(40, Math.round(renderWidth)),
     height: Math.max(40, Math.round(renderHeight)),
-    align: (container.dataset.align as "left" | "center" | "right") || "center"
+    align
   };
 }
 

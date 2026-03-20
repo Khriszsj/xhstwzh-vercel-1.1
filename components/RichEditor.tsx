@@ -1059,21 +1059,42 @@ export function RichEditor({
   );
 
   const runCommand = useCallback(async () => {
-    if (!command.trim()) {
+    const trimmedCommand = command.trim();
+    if (!trimmedCommand) {
       return;
     }
 
-    const response = await fetch("/api/editor/command", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command, doc })
-    });
+    let response: Response;
+    try {
+      response = await fetch("/api/editor/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: trimmedCommand, doc })
+      });
+    } catch {
+      onCommandFeedback("命令请求失败，请检查网络或稍后重试。");
+      return;
+    }
 
-    const payload = (await response.json()) as {
+    let payload: {
       error?: string;
       result?: { confidence: number; operations: unknown[] };
       patchedDoc?: RichDoc;
     };
+    try {
+      payload = (await response.json()) as {
+        error?: string;
+        result?: { confidence: number; operations: unknown[] };
+        patchedDoc?: RichDoc;
+      };
+    } catch {
+      onCommandFeedback(
+        response.ok
+          ? "命令响应解析失败，请稍后重试。"
+          : `命令服务异常（${response.status}），请稍后重试。`
+      );
+      return;
+    }
 
     if (!response.ok || !payload.patchedDoc) {
       onCommandFeedback(payload.error || "命令解析失败");

@@ -1,19 +1,19 @@
-import { z } from "zod";
+import { editorCommandRequestSchema, formatZodIssues } from "@/lib/api-schemas";
 import { applyEditorOperations, sanitizeRichDoc } from "@/lib/doc";
 import { fail, ok } from "@/lib/http";
 import { parseEditorCommand } from "@/lib/command-engine";
-import type { RichDoc } from "@/lib/types";
-
-const schema = z.object({
-  command: z.string().min(1),
-  doc: z.custom<RichDoc>()
-});
 
 export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const parsed = editorCommandRequestSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return fail(formatZodIssues(parsed.error.issues), 422);
+  }
+
   try {
-    const payload = schema.parse(await request.json());
-    const doc = sanitizeRichDoc(payload.doc);
-    const result = parseEditorCommand(payload.command, doc);
+    const doc = sanitizeRichDoc(parsed.data.doc);
+    const result = parseEditorCommand(parsed.data.command, doc);
 
     if (!result.operations.length) {
       return ok({ result, patchedDoc: doc });
@@ -22,9 +22,6 @@ export async function POST(request: Request) {
     const patchedDoc = applyEditorOperations(doc, result.operations);
     return ok({ result, patchedDoc });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return fail(error.issues.map((item) => item.message).join("; "), 422);
-    }
     return fail(error instanceof Error ? error.message : "Failed to parse command", 500);
   }
 }
